@@ -1,11 +1,12 @@
-import os
-import gradio as gr
 import tiktoken
+from dotenv import load_dotenv
+from fastapi import FastAPI, HTTPException
+from fastapi.responses import StreamingResponse
 from langchain.chat_models import ChatOpenAI
 from langchain.schema import HumanMessage, AIMessage
 from langchain_community.vectorstores import Chroma
 from langchain_openai import OpenAIEmbeddings
-from dotenv import load_dotenv
+from pydantic import BaseModel
 
 # Load environment variables
 load_dotenv()
@@ -16,6 +17,7 @@ PERSIST_DIRECTORY = "docs.db"
 MAX_TOKENS = 3000
 
 # Initialize components
+app = FastAPI()
 encodings = tiktoken.encoding_for_model(MODEL_NAME)
 db = Chroma(persist_directory=PERSIST_DIRECTORY, embedding_function=OpenAIEmbeddings())
 chat = ChatOpenAI(model_name=MODEL_NAME)
@@ -32,6 +34,11 @@ Information from docs:
 
 Question: {user_question}
 """
+
+
+class ChatRequest(BaseModel):
+    message: str
+    history: list[tuple[str, str]]
 
 
 def get_doc_prompt(results):
@@ -56,7 +63,7 @@ def create_message(prompt, history):
     return list(reversed(messages))
 
 
-def generate_response(message, history):
+async def generate_response(message, history):
     try:
         results = db.similarity_search(message)
         doc_content = get_doc_prompt(results)
@@ -64,14 +71,22 @@ def generate_response(message, history):
 
         print(f"Prompt length: {len(encodings.encode(chat_prompt))}")
 
-        reply = ""
         for chunk in chat.stream(create_message(chat_prompt, history)):
-            reply += chunk.content
-            yield reply
+            yield chunk.content
     except Exception as e:
         print(f"An error occurred: {str(e)}")
         yield "I'm sorry, but an error occurred while processing your request. Please try again later."
 
 
+@app.post("/chat")
+async def chat_endpoint(request: ChatRequest):
+    try:
+        return StreamingResponse(generate_response(request.message, request.history), media_type="text/plain")
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
 if __name__ == "__main__":
-    gr.ChatInterface(generate_response).launch(allowed_paths=["assets/"])
+    import uvicorn
+
+    uvicorn.run(app, host="0.0.0.0", port=8000)
