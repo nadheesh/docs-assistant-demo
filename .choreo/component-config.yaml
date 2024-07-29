@@ -1,0 +1,9 @@
+apiVersion: core.choreo.dev/v1beta1
+kind: ComponentConfig
+spec:
+  inbound:
+    - name: docsassistant
+      context: /
+      type: REST
+      port: 8080
+      networkVisibility: Public
