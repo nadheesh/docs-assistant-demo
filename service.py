@@ -113,6 +113,11 @@ async def generate_response(message, history):
         print(f"An error occurred: {str(e)}")
         yield "I'm sorry, but an error occurred while processing your request. Please try again later."
 
+@app.get("/find")
+async def find_docs(topic: str):
+    return ""
+
+
 @app.post("/chat")
 async def chat_endpoint(request: ChatRequest):
     """

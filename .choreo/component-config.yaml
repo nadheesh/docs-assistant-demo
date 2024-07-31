@@ -7,3 +7,4 @@ spec:
       type: REST
       port: 8080
       networkVisibility: Public
+      schemaFilePath: openapi.yaml
